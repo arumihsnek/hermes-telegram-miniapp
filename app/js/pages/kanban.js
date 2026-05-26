@@ -5,7 +5,7 @@
  */
 const kanbanPage = {
   async handler({ content, title, backBtn }) {
-    title.textContent = 'Kanban Boards';
+    title.textContent = 'Kanban';
     backBtn.classList.add('hidden');
 
     try {
@@ -22,25 +22,19 @@ const kanbanPage = {
         return;
       }
 
-      // Go directly to the current/active board
-      if (current) {
-        Router.navigate('/kanban/' + current);
-        return;
-      }
-
-      // Fallback: show board list if no current board
       const boardList = boards.map(b => ({
         id: b.slug,
         name: b.name,
         task_count: b.total || 0,
+        isCurrent: b.slug === current,
       }));
 
       content.innerHTML = `
         <div class="kanban-boards">
-          <h2>Your Boards</h2>
+          <h2>Select Board</h2>
           ${boardList.map(b => `
-            <div class="card kanban-board-card" onclick="kanbanPage.openBoard('${b.id}')">
-              <div class="board-name">${kanbanPage._escape(b.name)}</div>
+            <div class="card kanban-board-card" onclick="kanbanPage.openBoard('${b.id}')" style="${b.isCurrent ? 'border: 2px solid var(--primary);' : ''}">
+              <div class="board-name">${kanbanPage._escape(b.name)}${b.isCurrent ? ' ⭐' : ''}</div>
               <div class="tg-text-hint">${b.task_count || 0} tasks</div>
             </div>
           `).join('')}
