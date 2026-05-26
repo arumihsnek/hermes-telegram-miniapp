@@ -12,7 +12,7 @@ lint:
 	test -f proxy/resume.html
 
 test: lint
-	$(PYTHON) -m unittest discover -s tests -v
+	$(PYTHON) -m pytest -q
 
 smoke:
 	bash scripts/smoke.sh

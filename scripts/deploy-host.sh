@@ -14,7 +14,7 @@ test -f app/index.html
 test -f "$SERVICE_SRC"
 
 python3 -m py_compile proxy/tg-proxy.py scripts/healthcheck.py scripts/tg-proxy-watch.py
-python3 -m unittest discover -s tests -v
+python3 -m pytest -q
 
 mkdir -p "$OPENRESTY_MINIAPP_DIR"
 tar -C "$REPO/app" -cf - . | tar -C "$OPENRESTY_MINIAPP_DIR" -xf -

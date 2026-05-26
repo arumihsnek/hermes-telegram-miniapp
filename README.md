@@ -18,6 +18,7 @@ Este repo contiene dos piezas propias:
 
 - `proxy/` — proxy independiente que inyecta Telegram WebApp SDK y sirve `/resume`.
 - `app/` — SPA Mini App estática consolidada desde OpenResty para que también viva aquí como fuente versionada.
+  - Solo assets estáticos; sin scripts Python operativos dentro de `app/`.
 
 Y contiene solo copias de referencia de cosas nativas:
 

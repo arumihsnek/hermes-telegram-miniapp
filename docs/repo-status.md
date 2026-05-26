@@ -11,7 +11,7 @@ El proyecto vive en `/opt/data/hermes/miniapp` como repo único propio.
 - `app/` para la SPA estática de Mini App.
 - `proxy/` para el reverse proxy Telegram SDK + `/resume`.
 - `ops/` para systemd.
-- `scripts/` para deploy, smoke y healthcheck.
+- `scripts/` para deploy, smoke y el único healthcheck operativo.
 - `docs/` para arquitectura/planes.
 
 ## Qué NO es fuente de verdad
