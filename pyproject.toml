@@ -1,0 +1,12 @@
+[project]
+name = "hermes-telegram-miniapp"
+version = "0.1.0"
+description = "Telegram Mini App proxy, static app, ops scripts and tests for HERMES Agent"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100

@@ -1,0 +1,64 @@
+/* Sessions page */
+.sessions-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* Session card */
+.session-card { cursor: pointer; }
+.session-title { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.session-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+
+/* Session type badges */
+.session-badge {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px;
+  display: inline-block;
+}
+.session-badge-default { background: var(--primary); color: var(--button-text-color, #fff); }
+.session-badge-cron { background: #9e9e9e; color: #fff; }
+.session-badge-kanban { background: #7c4dff; color: #fff; }
+.session-badge-msg { background: #00bfa5; color: #fff; }
+.session-badge-fork { background: #ff6d00; color: #fff; }
+.session-badge-bg { background: #546e7a; color: #fff; }
+.session-badge-untitled { background: transparent; border: 1px dashed var(--hint); color: var(--hint); }
+
+/* Status indicators */
+.session-status {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+}
+.session-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+.session-status-running { color: #4caf50; }
+.session-status-running .session-status-dot { background: #4caf50; animation: blink 1s ease-in-out infinite; }
+.session-status-standby { color: #ff9800; }
+.session-status-standby .session-status-dot { background: #ff9800; }
+.session-status-finish { color: var(--hint); }
+.session-status-finish .session-status-dot { background: var(--hint); }
+.session-status-error { color: var(--destructive-text-color, #ef5350); }
+.session-status-error .session-status-dot { background: var(--destructive-text-color, #ef5350); }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+/* Session filters bar */
+.sessions-filters {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--secondary-bg);
+}
+.sessions-filters label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--hint); cursor: pointer;
+  padding: 4px 8px; border-radius: 6px; background: var(--secondary-bg);
+}
+.sessions-filters label.active-filter { color: var(--text); background: var(--primary); color: var(--button-text-color, #fff); }
+.sessions-filters input[type="checkbox"] { display: none; }
+
+/* Session detail / messages */
+.session-detail { overflow-y: auto; }
+.message { margin-bottom: 8px; padding: 10px; border-radius: 8px; background: var(--secondary-bg); }
+.message-user { background: var(--primary); color: var(--button-text-color, #fff); }
+.message-assistant { background: var(--card-bg, var(--secondary-bg)); }
+.message-tool { background: #1a1a2e; font-family: monospace; font-size: 12px; border-left: 3px solid var(--primary); }
+.message-role { font-size: 11px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
+.message-content { font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.message-time { font-size: 10px; margin-top: 4px; opacity: 0.5; text-align: right; }
+
+/* Rename form */
+.session-rename-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.session-rename-form input { flex: 1; }

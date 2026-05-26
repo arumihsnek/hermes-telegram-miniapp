@@ -1,0 +1,142 @@
+/* Kanban page */
+.kanban-boards { display: flex; flex-direction: column; gap: 8px; }
+.kanban-boards h2 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+
+/* Single-column layout per user request */
+.kanban-board-single { display: flex; flex-direction: column; gap: 12px; }
+.kanban-column-single {
+  background: var(--secondary-bg);
+  border-radius: 12px;
+  padding: 12px;
+  width: 100%;
+}
+.column-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--primary);
+  position: sticky; top: 0;
+}
+.column-header h3 { margin: 0; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.column-tasks { display: flex; flex-direction: column; gap: 6px; min-height: 40px; }
+
+/* Kanban task card (session card inside column) */
+.kanban-task {
+  cursor: grab; padding: 12px; transition: transform 0.1s ease;
+  background: var(--card-bg, var(--bg));
+  border-radius: 8px;
+  border: 1px solid var(--section-separator-color, transparent);
+}
+.kanban-task:active { cursor: grabbing; transform: scale(0.98); }
+.kanban-task.dragging { opacity: 0.5; }
+
+/* Board card (board selector) */
+.kanban-board-card {
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  min-height: 100px;
+}
+.kanban-board-card:active { transform: scale(0.98); }
+.board-name { font-weight: 600; margin-bottom: 4px; font-size: 18px; }
+
+/* Long-press drag activation */
+.long-press-active { opacity: 0.8; transform: scale(1.02); }
+.long-press-ready { animation: pulse 0.5s ease-in-out infinite alternate; }
+.dragging-active { opacity: 0.3; }
+.drag-clone {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  border-radius: 8px;
+  background: var(--card-bg, var(--bg));
+  border: 1px solid var(--primary, #4a6cf7);
+  padding: 12px;
+  cursor: grabbing;
+  transition: none;
+}
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.6; } }
+
+/* Kanban Add Task form — modal overlay */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.hidden { display: none; }
+
+.modal-content.kf-content {
+  background: var(--bg);
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.2s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.kf-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--section-separator-color, #e0e0e0);
+}
+.kf-header h3 { margin: 0; font-size: 18px; font-weight: 700; }
+.kf-close {
+  background: none; border: none; font-size: 24px;
+  cursor: pointer; color: var(--hint); line-height: 1;
+}
+
+.kf-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kf-body label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+  color: var(--text);
+}
+
+.kf-footer {
+  padding: 12px 16px 20px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--section-separator-color, #e0e0e0);
+}
+.kf-footer .tg-button { flex: 1; min-width: 80px; font-size: 13px; padding: 10px 8px; }
+
+.kf-deps-list {
+  max-height: 140px;
+  overflow-y: auto;
+  background: var(--secondary-bg);
+  border-radius: 8px;
+  padding: 4px;
+}
+.kf-dep-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.kf-dep-item:hover { background: var(--section-separator-color, #eee); }
+.kf-dep-item .tg-badge { font-size: 10px; margin-left: auto; }
+
+.tg-button-cancel {
+  background: none;
+  border: 1px solid var(--section-separator-color, #ccc);
+  color: var(--hint);
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  flex: 1;
+}
+.tg-button-cancel:active { opacity: 0.7; }

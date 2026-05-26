@@ -1,0 +1,42 @@
+/* Telegram theme CSS variables — fallback light/dark */
+:root {
+  --tg-theme-bg-color: #ffffff;
+  --tg-theme-text-color: #000000;
+  --tg-theme-hint-color: #707579;
+  --tg-theme-link-color: #007aff;
+  --tg-theme-button-color: #007aff;
+  --tg-theme-button-text-color: #ffffff;
+  --tg-theme-secondary-bg-color: #f1f1f1;
+  --tg-theme-header-bg-color: var(--tg-theme-bg-color);
+  --tg-theme-accent-text-color: var(--tg-theme-link-color);
+  --tg-theme-section-bg-color: var(--tg-theme-secondary-bg-color);
+  --tg-theme-section-header-text-color: var(--tg-theme-hint-color);
+  --tg-theme-subtitle-text-color: var(--tg-theme-hint-color);
+  --tg-theme-destructive-text-color: #ef5350;
+  --tg-theme-section-separator-color: transparent;
+  --tg-theme-bottom-bar-bg-color: var(--tg-theme-secondary-bg-color);
+
+  --primary: var(--tg-theme-button-color);
+  --bg: var(--tg-theme-bg-color);
+  --text: var(--tg-theme-text-color);
+  --hint: var(--tg-theme-hint-color);
+  --secondary-bg: var(--tg-theme-secondary-bg-color);
+  --card-bg: var(--tg-theme-section-bg-color);
+  --border-radius: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100vh;
+  height: calc(var(--tg-viewport-height, 100vh));
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--hint); border-radius: 2px; }

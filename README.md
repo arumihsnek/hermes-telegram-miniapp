@@ -1,134 +1,95 @@
 # HERMES Telegram Mini App
 
-A Telegram Mini App for managing Hermes Agent sessions, kanban boards, and tasks from your phone.
+Repo único para la Mini App de Telegram de HERMES **sin tocar archivos nativos de Hermes/WebUI**.
 
-## Overview
+## Estado actual
 
-This Mini App provides a mobile-optimized interface for:
+Producción usa esta cadena:
 
-- **Kanban** — View and manage kanban boards (single-column layout)
-- **Tasks** — View tasks grouped by status
-- **Sessions** — Browse, filter (server-side by source), rename, and inspect Hermes agent sessions
-- **Chat** — Chat interface (coming soon)
-- **Dashboard/WebUI** — External redirects to full desktop interfaces
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "User Device (Telegram)"
-        SPA["SPA (HTML/JS/CSS)"]
-    end
-
-    subgraph "Host (OCI / OpenResty)"
-        NGINX["OpenResty (nginx)"]
-        STATIC["Static Files<br/>www/sites/hermes/static/miniapp/"]
-    end
-
-    subgraph "Hermes Container (Docker)"
-        DASHBOARD["FastAPI Dashboard<br/>:9119"]
-        HANDLER["miniapp_handler.py<br/>Internal endpoints"]
-        PROXY["Standalone Proxy<br/>:9444"]
-        DB["state.db (SQLite)"]
-        GATEWAY["Hermes Gateway<br/>Telegram, etc."]
-    end
-
-    SPA -->|HTTPS| NGINX
-    NGINX -->|/miniapp/*| STATIC
-    NGINX -->|/api/miniapp/*| PROXY
-    PROXY -->|GET/POST/PATCH| DASHBOARD
-    DASHBOARD -->|Direct SQLite| HANDLER
-    DASHBOARD -->|Plugin API| GATEWAY
-    HANDLER -->|Read/Write| DB
+```text
+Telegram Mini App / WebView
+  -> https://webui.hermesinthenight.duckdns.org/
+  -> OpenResty :443
+  -> tg-proxy.service :9118
+  -> Hermes WebUI nativo :9119
 ```
 
-## File Structure
+Este repo contiene dos piezas propias:
 
-```
-/opt/data/miniapp/          # ← Git repo (source of truth)
-├── index.html              # SPA entry point
-├── js/
-│   ├── app.js              # App init + Telegram SDK
-│   ├── router.js           # Hash-based SPA router
-│   ├── config.js           # Client configuration
-│   ├── utils/
-│   │   ├── api.js          # API client (X-Telegram-Init-Data auth)
-│   │   ├── telegram.js     # Telegram WebApp SDK helpers
-│   │   └── theme.js        # Theme color mapping
-│   └── pages/
-│       ├── kanban.js       # Kanban (single-column + long-press drag)
-│       ├── tasks.js        # Tasks (grouped by status)
-│       ├── sessions.js     # Sessions (filters, badges, rename)
-│       ├── redirects.js    # Dashboard/WebUI external redirects
-├── css/
-│   ├── theme.css           # CSS variables (Telegram theme)
-│   ├── layout.css          # Shell layout + components
-│   └── pages/
-│       ├── kanban.css
-│       ├── tasks.css
-│       ├── sessions.css
-│       └── redirects.css
-├── assets/                 # Static assets (images, icons)
-├── proxy/
-│   └── miniapp-api-proxy.py  # Standalone API proxy (port 9444)
-├── dashboard/
-│   └── miniapp_handler.py    # Dashboard-embedded routes
-├── README.md
-├── ARCHITECTURE.md
-└── TODO.md
-```
+- `proxy/` — proxy independiente que inyecta Telegram WebApp SDK y sirve `/resume`.
+- `app/` — SPA Mini App estática consolidada desde OpenResty para que también viva aquí como fuente versionada.
 
-## Deployment
+Y contiene solo copias de referencia de cosas nativas:
 
-The SPA is served from **OpenResty** on the host at:
+- `references/native-snapshots/` — snapshots para estudiar/integrar; **no son destino de deploy automático**.
 
-```
-/opt/1panel/apps/openresty/openresty/www/sites/hermes/static/miniapp/
+## Regla de oro
+
+No editar directamente:
+
+- `/opt/hermes/gateway/*`
+- `/opt/hermes/hermes_cli/*`
+- WebUI nativo
+- `web_server.py`, HTML/JS nativos del WebUI
+
+Todo lo propio debe vivir aquí y desplegarse alrededor:
+
+- proxy por systemd
+- SPA estática por OpenResty
+- documentación/scripts/tests en este repo
+
+## Estructura
+
+```text
+app/                         SPA estática propia de Mini App
+proxy/tg-proxy.py            reverse proxy + SDK injection + /resume
+proxy/resume.html            página de sesiones standalone
+scripts/healthcheck.py       healthcheck único full-stack
+scripts/smoke.sh             smoke test rápido
+scripts/deploy-host.sh       deploy desde repo host
+scripts/tg-proxy-watch.py    watchdog legacy; systemd es preferido
+ops/tg-proxy.service         unidad systemd versionada
+docs/                        arquitectura, planes y decisiones
+references/                  docs legacy y snapshots nativos no desplegables
+tests/                       tests de regresión del proxy
 ```
 
-### Deploy flow
+## Desarrollo rápido
 
 ```bash
-# 1. Build/test in repo
-cd /opt/data/miniapp
-git add .
-git commit -m "..."
-# 2. Copy to OpenResty (requires sudo on host)
-sudo cp -r /opt/data/miniapp/* /opt/1panel/apps/openresty/openresty/www/sites/hermes/static/miniapp/
-# 3. Bump CSS/JS version in index.html (update ?v=N)
-# 4. Reload OpenResty
-sudo docker exec 1Panel-openresty-iX4n nginx -s reload
+cd /opt/data/hermes/miniapp
+make test
+make smoke
+make healthcheck
 ```
 
-### Backend services
+## Deploy
 
-| Service | Port | Description |
-|---------|------|-------------|
-| Hermes Dashboard | :9119 | FastAPI backend (internal) |
-| Miniapp Proxy | :9444 | Standalone Python proxy (127.0.0.1 only) |
-| OpenResty | :443 | HTTPS termination + reverse proxy |
+El repo ya vive en el host en `/opt/data/hermes/miniapp`.
 
-## Authentication
-
-- **Telegram Mini App**: Uses `X-Telegram-Init-Data` header (HMAC-SHA256 validated)
-- **Dashboard**: Uses `X-Hermes-Session-Token` (scraped from dashboard HTML)
-- **Proxy auth flow**: SPA → Telegram initData → Proxy → Dashboard session token
-
-## Routes (nginx)
-
-```nginx
-# Static SPA
-location /miniapp/ {
-    root /www/sites/hermes/static;
-    try_files $uri $uri/ /miniapp/index.html;
-}
-
-# API proxy
-location /api/miniapp/ {
-    proxy_pass http://127.0.0.1:9444/;
-}
-
-# External redirects
-location = /miniapp/dashboard { return 302 https://hermes.cloudinthenight.duckdns.org/; }
-location = /miniapp/webui { return 302 https://cloudinthenight.duckdns.org/webui/; }
+```bash
+cd /opt/data/hermes/miniapp
+sudo scripts/deploy-host.sh
 ```
+
+Qué hace:
+
+1. sincroniza `app/` a OpenResty static miniapp
+2. instala/actualiza `ops/tg-proxy.service`
+3. recarga systemd
+4. reinicia solo `tg-proxy.service`
+5. recarga OpenResty si el contenedor existe
+6. ejecuta smoke test
+
+No reinicia gateway ni WebUI nativo.
+
+## URLs
+
+- Mini App URL del bot: `https://webui.hermesinthenight.duckdns.org/`
+- Resume: `https://webui.hermesinthenight.duckdns.org/resume`
+- Proxy local: `http://127.0.0.1:9118/`
+- WebUI local upstream: `http://127.0.0.1:9119/`
+
+## Pendiente importante
+
+`/resume <id>` directo en Telegram no debe implementarse tocando nativo a ciegas. Primero diseñar un plugin/wrapper o un cambio upstream mantenible. Mientras tanto `/resume` ofrece Copy/Resume manual.

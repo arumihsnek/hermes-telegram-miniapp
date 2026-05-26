@@ -1,0 +1,17 @@
+[Unit]
+Description=Telegram Mini App Proxy (SDK injection + /resume)
+Documentation=https://github.com/hermes-agent/miniapp
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/data/hermes/miniapp/proxy/tg-proxy.py
+WorkingDirectory=/opt/data/hermes/miniapp/proxy
+Restart=always
+RestartSec=5
+User=ubuntu
+Environment=TG_PROXY_PORT=9118
+Environment=TG_PROXY_UPSTREAM=http://127.0.0.1:9119
+Environment=TG_PROXY_BOT=evh055_bot
+
+[Install]
+WantedBy=multi-user.target
