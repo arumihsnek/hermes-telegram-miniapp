@@ -276,7 +276,45 @@ const kanbanBoard = {
                    data-column-id="${colId}"
                    ondragover="kanbanBoard.onDragOver(event)"
                    ondrop="kanbanBoard.onDrop(event, '${colId}')">
-                ${(col.tasks || []).map((task, idx) => kanbanBoard._renderTaskCard(task, idx, colId)).join('')}
+                ${(col.tasks || []).map((task, idx) => {
+                  let moveButtons = '';
+                  if (colId === 'triage') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move to Todo">⬇</button>`;
+                  } else if (colId === 'todo') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'ready')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move to Ready">⬇</button>`;
+                  } else if (colId === 'ready') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move back">⬆</button>`;
+                  } else if (colId === 'blocked') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Unblock">⬆</button>`;
+                  } else if (colId === 'completed' || colId === 'done') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Reopen">↻</button>`;
+                  }
+                  return `
+                  <div class="kanban-task card" data-task-id="${task.id}" style="display:flex;flex-direction:column;gap:0">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"
+                         draggable="true"
+                         data-task-id="${task.id}"
+                         data-position="${idx}"
+                         ondragstart="kanbanBoard.onDragStart(event, '${task.id}')"
+                         ondragend="kanbanBoard.onDragEnd(event)">
+                      <div style="flex:1;min-width:0">
+                        <div class="task-title">${kanbanPage._escape(task.title)}</div>
+                        ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
+                        ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
+                      </div>
+                      <div style="display:flex;gap:4px;flex-shrink:0">
+                        ${moveButtons}
+                        <button onclick="event.stopPropagation();kanbanBoard._toggleComments('${task.id}', this)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Comments">💬</button>
+                        ${colId === 'triage' ? `
+                          <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Specify">🎯</button>
+                          <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Edit">✏️</button>
+                        ` : ''}
+                      </div>
+                    </div>
+                    <div id="comments-${task.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--section-separator-color);"></div>
+                  </div>
+                `;}
+                ).join('')}
               </div>
             </div>`;
         }).join('');
