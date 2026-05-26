@@ -28,11 +28,8 @@ const tasksPage = {
     }
 
     const { agents = [], running_tasks = [] } = data;
-    const now = Date.now() / 1000;
 
-    const telegramAgents = agents.filter(a => a.source === 'telegram' && !a.session_id.startsWith('bg_') && !a.session_id.startsWith('cron_'));
     const bgAgents = agents.filter(a => a.session_id.startsWith('bg_'));
-    const cronAgents = agents.filter(a => a.source === 'cron');
 
     let html = `
       <div class="agents-page">
@@ -41,11 +38,11 @@ const tasksPage = {
           <span style="cursor:pointer;color:var(--tg-theme-link-color,#4a9eff)" onclick="tasksPage._render()">↻ Now</span>
         </div>`;
 
-    // Running kanban tasks
+    // Running kanban tasks (from delegate_task, /btw, etc.)
     if (running_tasks.length > 0) {
       html += `
         <div class="agents-section">
-          <div class="agents-section-title">🏃 Kanban Running (${running_tasks.length})</div>
+          <div class="agents-section-title">🏃 Running (${running_tasks.length})</div>
           ${running_tasks.map(t => `
             <div class="agent-card card">
               <div class="agent-header">
@@ -62,16 +59,7 @@ const tasksPage = {
         </div>`;
     }
 
-    // Active telegram sessions
-    if (telegramAgents.length > 0) {
-      html += `
-        <div class="agents-section">
-          <div class="agents-section-title">💬 Telegram Activo (${telegramAgents.length})</div>
-          ${telegramAgents.map(a => this._agentCard(a)).join('')}
-        </div>`;
-    }
-
-    // Background sessions
+    // Background sessions (bg_*)
     if (bgAgents.length > 0) {
       html += `
         <div class="agents-section">
@@ -80,17 +68,8 @@ const tasksPage = {
         </div>`;
     }
 
-    // Cron sessions
-    if (cronAgents.length > 0) {
-      html += `
-        <div class="agents-section">
-          <div class="agents-section-title">🕐 Cron Activo (${cronAgents.length})</div>
-          ${cronAgents.map(a => this._agentCard(a)).join('')}
-        </div>`;
-    }
-
-    if (agents.length === 0 && running_tasks.length === 0) {
-      html += `<div class="empty-state"><div class="icon">😴</div><p>Sin agentes activos</p><p class="tg-text-hint">Todo en reposo</p></div>`;
+    if (running_tasks.length === 0 && bgAgents.length === 0) {
+      html += `<div class="empty-state"><div class="icon">😴</div><p>Sin tareas activas</p><p class="tg-text-hint">Todo en reposo</p></div>`;
     }
 
     html += '</div>';
