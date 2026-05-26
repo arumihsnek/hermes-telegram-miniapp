@@ -7,47 +7,50 @@ const kanbanPage = {
   async handler({ content, title, backBtn }) {
     title.textContent = 'Kanban';
     backBtn.classList.add('hidden');
+    content.innerHTML = '<div style="padding: 20px">Loading boards...</div>';
 
-    try {
-      const data = await API.get('/boards');
-      const { boards, current } = data;
+    setTimeout(async () => {
+      try {
+        const data = await API.get('/boards');
+        const { boards, current } = data;
 
-      if (!boards || boards.length === 0) {
+        if (!boards || boards.length === 0) {
+          content.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">📋</div>
+              <p>No boards yet</p>
+              <p class="tg-text-hint">Create your first board in the web dashboard</p>
+            </div>`;
+          return;
+        }
+
+        const boardList = boards.map(b => ({
+          id: b.slug,
+          name: b.name,
+          task_count: b.total || 0,
+          isCurrent: b.slug === current,
+        }));
+
         content.innerHTML = `
-          <div class="empty-state">
-            <div class="icon">📋</div>
-            <p>No boards yet</p>
-            <p class="tg-text-hint">Create your first board in the web dashboard</p>
+          <div class="kanban-boards">
+            <h2>Select Board</h2>
+            ${boardList.map(b => `
+              <div class="card kanban-board-card" onclick="kanbanPage.openBoard('${b.id}')" style="${b.isCurrent ? 'border: 2px solid var(--primary);' : ''}">
+                <div class="board-name">${kanbanPage._escape(b.name)}${b.isCurrent ? ' ⭐' : ''}</div>
+                <div class="tg-text-hint">${b.task_count || 0} tasks</div>
+              </div>
+            `).join('')}
+            <button class="tg-button" id="btn-new-kanban-task" style="margin-top:8px">+ Add Task</button>
           </div>`;
-        return;
+
+        document.getElementById('btn-new-kanban-task')?.addEventListener('click', () => {
+          kanbanForm.show();
+        });
+
+      } catch (err) {
+        content.innerHTML = `<div class="error">Failed to load boards: ${err.message}</div>`;
       }
-
-      const boardList = boards.map(b => ({
-        id: b.slug,
-        name: b.name,
-        task_count: b.total || 0,
-        isCurrent: b.slug === current,
-      }));
-
-      content.innerHTML = `
-        <div class="kanban-boards">
-          <h2>Select Board</h2>
-          ${boardList.map(b => `
-            <div class="card kanban-board-card" onclick="kanbanPage.openBoard('${b.id}')" style="${b.isCurrent ? 'border: 2px solid var(--primary);' : ''}">
-              <div class="board-name">${kanbanPage._escape(b.name)}${b.isCurrent ? ' ⭐' : ''}</div>
-              <div class="tg-text-hint">${b.task_count || 0} tasks</div>
-            </div>
-          `).join('')}
-          <button class="tg-button" id="btn-new-kanban-task" style="margin-top:8px">+ Add Task</button>
-        </div>`;
-
-      document.getElementById('btn-new-kanban-task')?.addEventListener('click', () => {
-        kanbanForm.show();
-      });
-
-    } catch (err) {
-      content.innerHTML = `<div class="error">Failed to load boards: ${err.message}</div>`;
-    }
+    }, 100);
   },
 
   async openBoard(boardId) {
