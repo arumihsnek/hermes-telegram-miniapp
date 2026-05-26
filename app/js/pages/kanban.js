@@ -9,14 +9,10 @@ const kanbanPage = {
     backBtn.classList.add('hidden');
 
     try {
-      const { boards } = await API.get('/boards');
-      const boardList = boards.map(b => ({
-        id: b.slug,
-        name: b.name,
-        task_count: b.total || 0,
-      }));
+      const data = await API.get('/boards');
+      const { boards, current } = data;
 
-      if (boardList.length === 0) {
+      if (!boards || boards.length === 0) {
         content.innerHTML = `
           <div class="empty-state">
             <div class="icon">📋</div>
@@ -25,6 +21,19 @@ const kanbanPage = {
           </div>`;
         return;
       }
+
+      // Go directly to the current/active board
+      if (current) {
+        Router.navigate('/kanban/' + current);
+        return;
+      }
+
+      // Fallback: show board list if no current board
+      const boardList = boards.map(b => ({
+        id: b.slug,
+        name: b.name,
+        task_count: b.total || 0,
+      }));
 
       content.innerHTML = `
         <div class="kanban-boards">
@@ -412,6 +421,12 @@ const kanbanBoard = {
       Toast.error('Failed to add comment: ' + err.message);
     }
   },
+
+  _switchBoard(boardSlug) {
+    if (boardSlug) {
+      Router.navigate('/kanban/' + boardSlug);
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -732,31 +747,37 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
   backBtn.classList.remove('hidden');
 
   try {
-    const data = await API.get(`/boards/${params.boardId}`);
-    const columns = data.columns || [];
-    const allBoards = data.boards || [];
-    const allTenants = data.tenants || [];
+    // Load board data and boards list in parallel
+    const [boardData, boardsData] = await Promise.all([
+      API.get(`/boards/${params.boardId}`),
+      API.get(`/boards`)
+    ]);
+
+    const columns = boardData.columns || [];
+    const allBoards = (boardsData.boards || []).map(b => ({ slug: b.slug, name: b.name }));
+    const allTenants = boardData.tenants || []; // Will be empty if not provided by API
 
     title.textContent = params.boardId;
 
     // Single-column layout with filters
     content.innerHTML = `
       <div class="kanban-board-single">
-        <div style="display:flex;gap:8px;margin-bottom:12px;padding:8px;background:var(--secondary-bg);border-radius:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;margin-bottom:12px;padding:8px;background:var(--secondary-bg);border-radius:8px;flex-wrap:wrap;align-items:flex-end">
           <div style="flex:1;min-width:150px">
             <label style="font-size:.75rem;color:var(--tg-theme-hint-color,#888);display:block;margin-bottom:4px">Board</label>
-            <select id="filter-board" class="tg-input" style="font-size:.85rem;width:100%" onchange="kanbanBoard._applyFilters('${params.boardId}')">
+            <select id="filter-board" class="tg-input" style="font-size:.85rem;width:100%" onchange="kanbanBoard._switchBoard(this.value)">
               <option value="">All Boards</option>
-              ${allBoards.map(b => `<option value="${b.slug}">${b.name}</option>`).join('')}
+              ${allBoards.map(b => `<option value="${b.slug}" ${b.slug === params.boardId ? 'selected' : ''}>${b.name}</option>`).join('')}
             </select>
           </div>
           <div style="flex:1;min-width:150px">
             <label style="font-size:.75rem;color:var(--tg-theme-hint-color,#888);display:block;margin-bottom:4px">Tenant</label>
             <select id="filter-tenant" class="tg-input" style="font-size:.85rem;width:100%" onchange="kanbanBoard._applyFilters('${params.boardId}')">
               <option value="">All Tenants</option>
-              ${allTenants.map(t => `<option value="${t}">${t}</option>`).join('')}
+              ${allTenants.length > 0 ? allTenants.map(t => `<option value="${t}">${t}</option>`).join('') : ''}
             </select>
           </div>
+          <button class="tg-button" style="width:auto;padding:8px 12px;font-size:.8rem;white-space:nowrap" onclick="kanbanForm.show()">+ Task</button>
         </div>
         <div id="kanban-tasks-container">
         ${columns.map(col => {
@@ -793,9 +814,6 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                          data-position="${idx}"
                          ondragstart="kanbanBoard.onDragStart(event, '${task.id}')"
                          ondragend="kanbanBoard.onDragEnd(event)"
-                         ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
-                         ontouchmove="kanbanBoard.onTouchMove(event)"
-                         ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
                          onclick="kanbanBoard.onTaskClick(event, '${task.id}')">
                       <div style="flex:1;min-width:0">
                         <div class="task-title">${kanbanPage._escape(task.title)}</div>
