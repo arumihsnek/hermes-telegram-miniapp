@@ -1,12 +1,52 @@
-/* Tasks page */
-.tasks-page { display: flex; flex-direction: column; gap: 8px; }
-.tasks-toolbar { display: flex; gap: 8px; align-items: center; }
-.task-card { cursor: pointer; }
-.task-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-.task-title { font-weight: 600; font-size: 15px; }
-.task-status { font-size: 10px; padding: 2px 6px; }
-.task-desc { margin-top: 4px; font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Agents page (formerly tasks) */
+.agents-page { padding-bottom: 16px; }
+.agents-section { margin: 0 0 4px; }
+.agents-section-title {
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--tg-theme-hint-color, #888);
+  padding: 10px 12px 4px;
+}
+.agent-card {
+  margin: 4px 12px;
+  padding: 10px 12px;
+}
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.agent-name {
+  font-size: .88rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.agent-meta {
+  font-size: .72rem;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.agent-id { font-family: monospace; font-size: .7rem; }
+.agent-model { color: var(--tg-theme-link-color, #4a9eff); font-size: .72rem; }
+.agent-badge {
+  font-size: .65rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.badge-active { background: rgba(74,158,255,.2); color: #4a9eff; }
+.badge-running { background: rgba(76,175,80,.2); color: #4caf50; }
 
-/* Task per session container (redesign WIP) */
-.task-session-container { margin-bottom: 16px; }
-.task-session-header { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--hint); text-transform: uppercase; letter-spacing: 0.5px; }
+/* Cron page */
+.cron-page { padding-bottom: 24px; }
+.cron-card { padding: 12px 14px; }

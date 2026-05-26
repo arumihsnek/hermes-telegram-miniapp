@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Telegram Mini App proxy — SDK injection + /resume page.
+"""Telegram Mini App proxy — SDK injection + /resume + /miniapp/ SPA.
 
-Loads resume.html from the same directory.
+Routes:
+  /resume        → resume.html (session picker)
+  /miniapp/*     → static files from ../app/ (Mini App SPA)
+  everything else → proxy to hermes dashboard (UPSTREAM)
 """
-import http.server, urllib.request, re, sys, socket, os
+import http.server, urllib.request, re, sys, socket, os, mimetypes
 
 UPSTREAM = os.environ.get("TG_PROXY_UPSTREAM", "http://127.0.0.1:9119")
 PORT = int(os.environ.get("TG_PROXY_PORT", "9118"))
 BOT = os.environ.get("TG_PROXY_BOT", "evh055_bot")
 DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.join(os.path.dirname(DIR), "app")
 
 TG_SCRIPT = ('<script src="https://telegram.org/js/telegram-web-app.js"></script>'
              '<script>try{Telegram.WebApp.ready();Telegram.WebApp.expand()}catch(e){}</script>')
@@ -21,9 +25,27 @@ with open(resume_path) as f:
 # Inject TG bot name
 RESUME_HTML = RESUME_HTML.replace("__BOT__", BOT)
 
+
+def _serve_file(handler, filepath, content_type):
+    """Send a local static file."""
+    try:
+        with open(filepath, "rb") as f:
+            data = f.read()
+        handler.send_response(200)
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Length", str(len(data)))
+        handler.send_header("Cache-Control", "public, max-age=300")
+        handler.end_headers()
+        handler.wfile.write(data)
+    except FileNotFoundError:
+        handler.send_error(404)
+
+
 class H(http.server.BaseHTTPRequestHandler):
     def do(self):
-        if self.path in ("/resume", "/resume/"):
+        path = self.path.split("?")[0]
+
+        if path in ("/resume", "/resume/"):
             body = RESUME_HTML.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -31,6 +53,21 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+
+        # Serve Mini App SPA static files
+        if path == "/miniapp" or path == "/miniapp/":
+            _serve_file(self, os.path.join(APP_DIR, "index.html"), "text/html; charset=utf-8")
+            return
+        if path.startswith("/miniapp/"):
+            rel = path[len("/miniapp/"):]
+            filepath = os.path.join(APP_DIR, rel)
+            # Security: ensure path stays within APP_DIR
+            if not os.path.realpath(filepath).startswith(os.path.realpath(APP_DIR)):
+                self.send_error(403)
+                return
+            ct, _ = mimetypes.guess_type(filepath)
+            _serve_file(self, filepath, ct or "application/octet-stream")
             return
 
         try:

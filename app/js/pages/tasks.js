@@ -1,177 +1,133 @@
 /**
- * Tasks page — tasks grouped by session
- * Each session container shows its tasks with status badges.
- * Clicking a task opens the session detail view.
+ * Tasks/Agents page — equivalent to /agents and /tasks in hermes --tui
+ * Shows active telegram sessions and running kanban tasks.
+ * Auto-refreshes every 30 seconds.
  */
 const tasksPage = {
-  currentBoardId: null,
-  _boardList: null,
-  _initialLoadDone: false,
+  _refreshTimer: null,
+  _content: null,
 
-  async handler({ content, title, backBtn }) {
-    title.textContent = 'Tasks';
-    backBtn.classList.add('hidden');
-    this._initialLoadDone = false;
+  async handler({ content, title }) {
+    title.textContent = 'Agents';
+    this._content = content;
+    clearInterval(this._refreshTimer);
+    await this._render();
+    this._refreshTimer = setInterval(() => this._render(), 30000);
+  },
 
+  async _render() {
+    const content = this._content;
+    if (!content) return;
+
+    let data;
     try {
-      const { boards } = await API.get('/boards');
-      this._boardList = boards;
-      const boardList = boards.map(b => ({
-        id: b.slug,
-        name: b.name,
-        task_count: b.total || 0,
-      }));
+      data = await API.get('/agents');
+    } catch (err) {
+      content.innerHTML = `<div class="error">Failed to load agents: ${this._esc(err.message)}</div>`;
+      return;
+    }
 
-      if (boardList.length === 0) {
-        content.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>No boards available</p><p class="tg-text-hint">Create a board in the web dashboard first</p></div>';
-        return;
-      }
+    const { agents = [], running_tasks = [] } = data;
+    const now = Date.now() / 1000;
 
-      content.innerHTML = `
-        <div class="tasks-page">
-          <div class="tasks-toolbar">
-            <select id="tasks-board-filter" class="tg-input" style="width:auto;flex:1">
-              ${boardList.map(b => '<option value="' + b.id + '">' + tasksPage._escape(b.name) + ' (' + (b.task_count || 0) + ' tasks)</option>').join('')}
-            </select>
-            <button id="btn-new-task" class="tg-button" style="width:auto;padding:10px 16px">+ New</button>
-          </div>
-          <div id="tasks-list"></div>
-          <div id="task-form" class="hidden"></div>
+    const telegramAgents = agents.filter(a => a.source === 'telegram' && !a.session_id.startsWith('bg_') && !a.session_id.startsWith('cron_'));
+    const bgAgents = agents.filter(a => a.session_id.startsWith('bg_'));
+    const cronAgents = agents.filter(a => a.source === 'cron');
+
+    let html = `
+      <div class="agents-page">
+        <div class="agents-refresh-hint tg-text-hint" style="font-size:.72rem;text-align:right;padding:4px 12px">
+          Auto-refresh: 30s &nbsp;•&nbsp;
+          <span style="cursor:pointer;color:var(--tg-theme-link-color,#4a9eff)" onclick="tasksPage._render()">↻ Now</span>
         </div>`;
 
-      document.getElementById('tasks-board-filter').addEventListener('change', (e) => {
-        this.currentBoardId = e.target.value;
-        this._loadTasks();
-      });
-
-      document.getElementById('btn-new-task').addEventListener('click', () => {
-        if (!this.currentBoardId) {
-          TG.showAlert('Select a board first');
-          return;
-        }
-        this._showCreateForm();
-      });
-
-      // Auto-select first board
-      this.currentBoardId = boardList[0].id;
-      document.getElementById('tasks-board-filter').value = this.currentBoardId;
-      this._initialLoadDone = true;
-      this._loadTasks();
-
-    } catch (err) {
-      content.innerHTML = '<div class="error">Failed to load: ' + tasksPage._escape(err.message) + '</div>';
-    }
-  },
-
-  async _loadTasks() {
-    const listEl = document.getElementById('tasks-list');
-    if (!this.currentBoardId || !this._initialLoadDone) {
-      listEl.innerHTML = '<div class="empty-state"><p class="tg-text-hint">Select a board to see tasks</p></div>';
-      return;
-    }
-
-    listEl.innerHTML = '<div class="loading">Loading tasks...</div>';
-    try {
-      const data = await API.get('/boards/' + this.currentBoardId);
-      const columns = data.columns || [];
-      const allTasks = [];
-      columns.forEach(col => {
-        (col.tasks || []).forEach(t => {
-          allTasks.push({
-            id: t.id,
-            title: t.title,
-            status: t.status || col.name,
-            assignee: t.assignee,
-            description: t.body || '',
-          });
-        });
-      });
-
-      if (allTasks.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><p>No tasks in this board</p><p class="tg-text-hint">Click "+ New" to create one</p></div>';
-        return;
-      }
-
-      // Group tasks by status for display
-      const statusGroups = { triage: [], todo: [], ready: [], running: [], blocked: [], done: [] };
-      allTasks.forEach(t => {
-        const group = t.status?.toLowerCase() || 'todo';
-        if (statusGroups[group]) statusGroups[group].push(t);
-        else statusGroups['todo'].push(t);
-      });
-
-      listEl.innerHTML = Object.entries(statusGroups)
-        .filter(([_, tasks]) => tasks.length > 0)
-        .map(([status, tasks]) => `
-          <div class="task-session-container">
-            <div class="task-session-header">${status}</div>
-            ${tasks.map(t => `
-              <div class="card task-card" onclick="tasksPage._openSessionForTask('${t.id}')">
-                <div class="task-card-header">
-                  <span class="task-title">${tasksPage._escape(t.title)}</span>
-                  <span class="task-status tg-badge">${t.status || 'todo'}</span>
-                </div>
-                ${t.assignee ? '<div class="tg-text-hint">@ ' + tasksPage._escape(t.assignee) + '</div>' : ''}
-                ${t.description ? '<div class="tg-text-hint task-desc">' + tasksPage._escape(t.description.substring(0, 100)) + '</div>' : ''}
+    // Running kanban tasks
+    if (running_tasks.length > 0) {
+      html += `
+        <div class="agents-section">
+          <div class="agents-section-title">🏃 Kanban Running (${running_tasks.length})</div>
+          ${running_tasks.map(t => `
+            <div class="agent-card card">
+              <div class="agent-header">
+                <span class="agent-name">${this._esc(t.title)}</span>
+                <span class="agent-badge badge-running">running</span>
               </div>
-            `).join('')}
-          </div>
-        `).join('');
-
-    } catch (err) {
-      listEl.innerHTML = '<div class="error">Failed to load tasks: ' + tasksPage._escape(err.message) + '</div>';
-    }
-  },
-
-  _openSessionForTask(taskId) {
-    // Navigate to kanban board showing this task's context
-    Router.navigate('/sessions/' + taskId);
-  },
-
-  _showCreateForm() {
-    const formEl = document.getElementById('task-form');
-    formEl.classList.remove('hidden');
-    formEl.innerHTML = '<div class="card">' +
-      '<h3>New Task</h3>' +
-      '<input id="new-task-title" class="tg-input" placeholder="Task title" style="margin-bottom:8px">' +
-      '<textarea id="new-task-desc" class="tg-input" placeholder="Description (optional)" rows="3" style="margin-bottom:8px"></textarea>' +
-      '<div style="display:flex;gap:8px">' +
-      '<button id="btn-save-task" class="tg-button">Save</button>' +
-      '<button id="btn-cancel-task" class="tg-button tg-button-secondary">Cancel</button>' +
-      '</div></div>';
-
-    document.getElementById('btn-save-task').addEventListener('click', () => this._createTask());
-    document.getElementById('btn-cancel-task').addEventListener('click', () => {
-      formEl.classList.add('hidden');
-    });
-  },
-
-  async _createTask() {
-    const title = document.getElementById('new-task-title').value.trim();
-    const description = document.getElementById('new-task-desc').value.trim();
-
-    if (!title) {
-      TG.showAlert('Title is required');
-      return;
+              <div class="agent-meta tg-text-hint">
+                ${t.assignee ? `@${this._esc(t.assignee)} &nbsp;•&nbsp;` : ''}
+                ${this._uptime(t.elapsed_seconds)}
+                &nbsp;•&nbsp; <span class="agent-id">${t.id}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
     }
 
-    try {
-      await API.post('/tasks', {
-        title: title,
-        body: description || undefined,
-      });
-      document.getElementById('task-form').classList.add('hidden');
-      this._loadTasks();
-      TG.haptic('success');
-    } catch (err) {
-      TG.showAlert('Failed to create task: ' + err.message);
+    // Active telegram sessions
+    if (telegramAgents.length > 0) {
+      html += `
+        <div class="agents-section">
+          <div class="agents-section-title">💬 Telegram Activo (${telegramAgents.length})</div>
+          ${telegramAgents.map(a => this._agentCard(a)).join('')}
+        </div>`;
     }
+
+    // Background sessions
+    if (bgAgents.length > 0) {
+      html += `
+        <div class="agents-section">
+          <div class="agents-section-title">⚡ Background (${bgAgents.length})</div>
+          ${bgAgents.map(a => this._agentCard(a)).join('')}
+        </div>`;
+    }
+
+    // Cron sessions
+    if (cronAgents.length > 0) {
+      html += `
+        <div class="agents-section">
+          <div class="agents-section-title">🕐 Cron Activo (${cronAgents.length})</div>
+          ${cronAgents.map(a => this._agentCard(a)).join('')}
+        </div>`;
+    }
+
+    if (agents.length === 0 && running_tasks.length === 0) {
+      html += `<div class="empty-state"><div class="icon">😴</div><p>Sin agentes activos</p><p class="tg-text-hint">Todo en reposo</p></div>`;
+    }
+
+    html += '</div>';
+    content.innerHTML = html;
   },
 
-  _escape(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+  _agentCard(a) {
+    const id8 = (a.session_id || '').slice(0, 8);
+    const title = a.title || a.session_id;
+    const model = a.model ? `<span class="agent-model">${this._esc(a.model.split('/').pop())}</span>` : '';
+    return `
+      <div class="agent-card card">
+        <div class="agent-header">
+          <span class="agent-name">${this._esc(title)}</span>
+          <span class="agent-badge badge-active">activo</span>
+        </div>
+        <div class="agent-meta tg-text-hint">
+          ${model}${model ? ' &nbsp;•&nbsp; ' : ''}
+          ${this._uptime(a.elapsed_seconds)}
+          &nbsp;•&nbsp; <code class="agent-id">${id8}</code>
+        </div>
+      </div>`;
+  },
+
+  _uptime(seconds) {
+    if (!seconds || seconds < 0) return '0s';
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  },
+
+  _esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
   },
 };
 
