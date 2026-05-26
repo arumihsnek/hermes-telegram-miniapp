@@ -296,6 +296,22 @@ const kanbanForm = {
     }
   },
 
+  async specify(taskId) {
+    try {
+      const task = await API.get('/tasks/' + taskId);
+      // Open edit modal and set to specify mode
+      this._editingTaskId = taskId;
+      this._specifyMode = true;
+      await this.editTask(taskId);
+
+      // Update button label
+      const btn = document.getElementById('kf-btn-specify');
+      if (btn) btn.textContent = '✓ Submit Specification';
+    } catch (err) {
+      Toast.error('Failed to load task: ' + err.message);
+    }
+  },
+
   hide() {
     this._visible = false;
     this._editingTaskId = null;
@@ -567,13 +583,18 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                        ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
                        ontouchmove="kanbanBoard.onTouchMove(event)"
                        ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
-                       style="display:flex;justify-content:space-between;align-items:flex-start">
+                       style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
                     <div style="flex:1;min-width:0">
                       <div class="task-title">${kanbanPage._escape(task.title)}</div>
                       ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
                       ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
                     </div>
-                    ${colId === 'triage' ? `<button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px">✏️</button>` : ''}
+                    ${colId === 'triage' ? `
+                      <div style="display:flex;gap:4px;flex-shrink:0">
+                        <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:4px" title="Specify">🎯</button>
+                        <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:4px" title="Edit">✏️</button>
+                      </div>
+                    ` : ''}
                   </div>
                 `).join('')}
               </div>
