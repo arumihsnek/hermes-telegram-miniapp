@@ -54,10 +54,57 @@
 .message { margin-bottom: 8px; padding: 10px; border-radius: 8px; background: var(--secondary-bg); }
 .message-user { background: var(--primary); color: var(--button-text-color, #fff); }
 .message-assistant { background: var(--card-bg, var(--secondary-bg)); }
-.message-tool { background: #1a1a2e; font-family: monospace; font-size: 12px; border-left: 3px solid var(--primary); }
+.message-tool {
+  background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+  border: 1px solid var(--tg-theme-hint-color, #555);
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  color: var(--tg-theme-text-color, inherit);
+}
+.message-tool summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.message-tool summary::-webkit-details-marker { display: none; }
+.message-tool-name { font-weight: 600; }
+.message-tool-body {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 11px;
+  opacity: 0.85;
+  max-height: 300px;
+  overflow-y: auto;
+}
 .message-role { font-size: 11px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
-.message-content { font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.message-content { font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .message-time { font-size: 10px; margin-top: 4px; opacity: 0.5; text-align: right; }
+
+/* Markdown content */
+.md-content { white-space: normal; }
+.md-content pre { background: var(--tg-theme-secondary-bg-color,#2a2a3e); border-radius:4px; padding:8px; overflow-x:auto; font-size:12px; margin:6px 0; }
+.md-content code { background: var(--tg-theme-secondary-bg-color,#2a2a3e); border-radius:3px; padding:1px 4px; font-size:12px; font-family:monospace; }
+.md-content pre code { background: none; padding: 0; }
+.md-content strong { font-weight: 700; }
+.md-content em { font-style: italic; }
+.md-content ul, .md-content ol { padding-left: 18px; margin: 4px 0; }
+.md-content li { margin: 2px 0; }
+.md-content hr { border: none; border-top: 1px solid var(--tg-theme-hint-color,#555); margin: 8px 0; }
+.md-content .md-blockquote { display:block; border-left:3px solid var(--primary); padding-left:8px; opacity:0.8; margin:4px 0; }
+.md-content h2, .md-content h3 { font-size: 1rem; font-weight: 700; margin: 6px 0 2px; }
+
+/* Inline rename button */
+.session-rename-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; opacity: 0.5; padding: 0 2px;
+  vertical-align: middle; line-height: 1;
+}
+.session-rename-btn:hover { opacity: 1; }
 
 /* Rename form */
 .session-rename-form { display: flex; gap: 8px; margin-bottom: 12px; }

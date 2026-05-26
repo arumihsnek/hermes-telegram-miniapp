@@ -92,8 +92,11 @@ const cronPage = {
               onclick="cronPage._runNow('${j.id}')">▶ Run</button>
             <button class="tg-button tg-button-secondary" style="width:auto;padding:5px 10px;font-size:.72rem"
               onclick="cronPage._toggle('${j.id}')">${enabled ? 'Pausar' : 'Activar'}</button>
+            <button class="tg-button tg-button-secondary" style="width:auto;padding:5px 10px;font-size:.72rem"
+              onclick="cronPage._toggleSessions('${j.id}', this)">📋</button>
           </div>
         </div>
+        <div id="cron-sessions-${j.id}" style="display:none;margin-top:6px;border-top:1px solid var(--tg-theme-secondary-bg-color,#2a2a2a);padding-top:6px"></div>
       </div>`;
   },
 
@@ -139,6 +142,32 @@ const cronPage = {
       await this._render();
     } catch (err) {
       if (window.TG) TG.showAlert('Error: ' + err.message);
+    }
+  },
+
+  async _toggleSessions(jobId, btn) {
+    const el = document.getElementById(`cron-sessions-${jobId}`);
+    if (!el) return;
+    if (el.style.display !== 'none') { el.style.display = 'none'; btn.textContent = '📋'; return; }
+    el.style.display = 'block';
+    btn.textContent = '▲';
+    el.innerHTML = '<div class="tg-text-hint" style="font-size:.72rem">Cargando...</div>';
+    try {
+      const data = await API.get(`/jobs/${jobId}/sessions`);
+      const sessions = data.sessions || [];
+      if (sessions.length === 0) { el.innerHTML = '<div class="tg-text-hint" style="font-size:.72rem">Sin sesiones</div>'; return; }
+      el.innerHTML = sessions.map(s => {
+        const running = !s.ended_at;
+        const dot = running ? '🟢' : (s.end_reason === 'error' ? '🔴' : '⚪');
+        const label = s.title || s.id.slice(0, 20);
+        return `<div style="padding:4px 0;cursor:pointer;font-size:.75rem;display:flex;gap:6px;align-items:center"
+          onclick="Router.navigate('/sessions/${s.id}')">
+          ${dot} <span>${this._esc(label)}</span>
+          <span class="tg-text-hint" style="font-size:.68rem;margin-left:auto">${this._relTime(s.started_at)}</span>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      el.innerHTML = `<div class="tg-text-hint" style="font-size:.72rem">Error: ${this._esc(err.message)}</div>`;
     }
   },
 

@@ -84,11 +84,17 @@ const sessionsPage = {
     const source = (s.source || '').toLowerCase();
     const badge = this._sourceBadge(source);
     const status = this._sessionStatus(s);
+    const label = s.title || ('session ' + (s.id || '').substring(0, 16));
+    const sid = sessionsPage._escape(s.id);
+    const stitle = sessionsPage._escape(s.title || '');
 
-      return `
-      <div class="card session-card" onclick="sessionsPage._openSession('${sessionsPage._escape(s.id)}')">
-        <div class="session-title">${sessionsPage._escape(s.title || 'session ' + (s.id || '').substring(0, 16))}
+    return `
+      <div class="card session-card" onclick="sessionsPage._openSession('${sid}')">
+        <div class="session-title">
+          ${sessionsPage._escape(label)}
           <span class="session-badge session-badge-${badge.cls}">${badge.label}</span>
+          <button class="session-rename-btn" title="Rename"
+            onclick="event.stopPropagation();sessionsPage._renameSessionPrompt('${sid}','${stitle}')">✏</button>
         </div>
         <div class="session-meta">
           <span class="session-status session-status-${status.cls}">
@@ -99,7 +105,6 @@ const sessionsPage = {
           <span>·</span>
           <span>${sessionsPage._formatDate(s.started_at || s.ended_at)}</span>
         </div>
-        <button class="tg-button" style="margin-top:6px;padding:4px 8px;font-size:11px;width:auto" onclick="event.stopPropagation();sessionsPage._renameSessionPrompt('${sessionsPage._escape(s.id)}', '${sessionsPage._escape(s.title || '')}')">✏️ Rename</button>
       </div>`;
   },
 
@@ -172,42 +177,58 @@ Router.register('/sessions/:sessionId', async ({ content, title, backBtn, params
 
   try {
     const { session, messages } = await API.get('/sessions/' + params.sessionId);
-    title.textContent = session.title || 'Session';
+    title.textContent = session.title || params.sessionId.slice(0, 12);
 
-    // Rename button in detail header
-    const renameBtn = `<button class="tg-button" style="margin-bottom:12px;padding:6px 12px;font-size:12px;width:auto" onclick="sessionsPage._renameSessionPrompt('${params.sessionId}', '${sessionsPage._escape(session.title || '')}')">✏️ Rename this session</button>`;
+    const sid = params.sessionId;
+    const stitle = sessionsPage._escape(session.title || '');
+
+    const headerBar = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:0 4px">
+        <span style="font-size:.8rem;color:var(--tg-theme-hint-color,#888);flex:1">${sessionsPage._escape(session.source || '')} · 💬 ${session.message_count || 0}</span>
+        <button class="tg-button" style="width:auto;padding:4px 10px;font-size:.78rem"
+          onclick="sessionsPage._renameSessionPrompt('${sid}','${stitle}')">✏ Rename</button>
+      </div>`;
+
+    const msgs = (messages || []).map(msg => {
+      const role = msg.role || 'user';
+      const isTool = role === 'tool' || !!msg.tool_name;
+      const isUser = role === 'user';
+
+      if (isTool) {
+        const toolName = sessionsPage._escape(msg.tool_name || 'tool');
+        let body = '';
+        if (typeof msg.content === 'string') body = msg.content;
+        else if (msg.content) body = JSON.stringify(msg.content, null, 2);
+        return `
+          <details class="message message-tool">
+            <summary><span class="message-tool-name">🔧 ${toolName}</span></summary>
+            <pre class="message-tool-body">${sessionsPage._escape(body)}</pre>
+          </details>`;
+      }
+
+      let body = '';
+      if (typeof msg.content === 'string') {
+        body = isUser
+          ? `<div class="message-content">${sessionsPage._escape(msg.content)}</div>`
+          : `<div class="message-content md-content">${Markdown.render(msg.content)}</div>`;
+      } else if (msg.content) {
+        body = `<div class="message-content">${sessionsPage._escape(JSON.stringify(msg.content, null, 2))}</div>`;
+      }
+
+      const cls = isUser ? 'message-user' : 'message-assistant';
+      const label = isUser ? '👤 You' : '🤖 HERMES';
+      return `
+        <div class="message ${cls}">
+          <div class="message-role">${label}</div>
+          ${body}
+          <div class="message-time">${sessionsPage._formatDate(msg.timestamp || msg.created_at)}</div>
+        </div>`;
+    }).join('');
 
     content.innerHTML = `
       <div class="session-detail" id="session-messages">
-        ${renameBtn}
-        ${(messages || []).map(msg => {
-          const role = msg.role || 'user';
-          const isUser = role === 'user';
-          const isTool = role === 'tool' || msg.tool_name;
-          const isAssistant = role === 'assistant';
-
-          let contentClass = 'message message-' + (isTool ? 'tool' : (isUser ? 'user' : 'assistant'));
-
-          let formattedContent = '';
-          if (isTool && typeof msg.content === 'string') {
-            // Tool calls: show just the command/name, collapse details
-            const toolName = msg.tool_name || 'tool';
-            const preview = msg.content.substring(0, 200);
-            formattedContent = `<span class="message-tool-name">🔧 ${toolName}</span>\n${sessionsPage._escape(preview)}${msg.content.length > 200 ? '...' : ''}`;
-          } else if (typeof msg.content === 'object' && msg.content !== null) {
-            formattedContent = sessionsPage._escape(JSON.stringify(msg.content, null, 2));
-          } else {
-            formattedContent = sessionsPage._escape(String(msg.content || ''));
-          }
-
-          return `
-            <div class="message ${contentClass}">
-              <div class="message-role">${isUser ? '👤 You' : (isTool ? '🔧 Tool' : '🤖 HERMES')}</div>
-              <div class="message-content">${formattedContent}</div>
-              <div class="message-time">${sessionsPage._formatDate(msg.timestamp || msg.created_at)}</div>
-            </div>`;
-        }).join('')}
-        ${(messages || []).length === 0 ? '<div class="empty-state"><p>No messages in this session</p></div>' : ''}
+        ${headerBar}
+        ${msgs || '<div class="empty-state"><p>No messages in this session</p></div>'}
       </div>`;
 
     const msgContainer = document.getElementById('session-messages');
