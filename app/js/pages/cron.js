@@ -156,18 +156,64 @@ const cronPage = {
       const data = await API.get(`/jobs/${jobId}/sessions`);
       const sessions = data.sessions || [];
       if (sessions.length === 0) { el.innerHTML = '<div class="tg-text-hint" style="font-size:.72rem">Sin sesiones</div>'; return; }
-      el.innerHTML = sessions.map(s => {
+      el.innerHTML = sessions.map((s, idx) => {
         const running = !s.ended_at;
         const dot = running ? '🟢' : (s.end_reason === 'error' ? '🔴' : '⚪');
         const label = s.title || s.id.slice(0, 20);
-        return `<div style="padding:4px 0;cursor:pointer;font-size:.75rem;display:flex;gap:6px;align-items:center"
-          onclick="Router.navigate('/sessions/${s.id}')">
-          ${dot} <span>${this._esc(label)}</span>
-          <span class="tg-text-hint" style="font-size:.68rem;margin-left:auto">${this._relTime(s.started_at)}</span>
-        </div>`;
+        const sessionId = `cron-result-${jobId}-${idx}`;
+        return `
+          <div style="margin-top:8px;border-left:2px solid var(--primary);padding-left:8px">
+            <div style="padding:4px 0;cursor:pointer;font-size:.75rem;display:flex;gap:6px;align-items:center;justify-content:space-between"
+              onclick="cronPage._toggleResult('${sessionId}', this)">
+              <div style="display:flex;gap:6px;align-items:center">
+                ${dot} <span>${this._esc(label)}</span>
+              </div>
+              <span class="tg-text-hint" style="font-size:.68rem">${this._relTime(s.started_at)}</span>
+            </div>
+            <div id="${sessionId}" style="display:none;margin-top:6px;padding:8px;background:var(--tg-theme-secondary-bg-color,#2a2a3e);border-radius:4px;font-size:.7rem;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto"></div>
+          </div>`;
       }).join('');
+
+      // Load results for each session
+      sessions.forEach((s, idx) => {
+        const sessionId = `cron-result-${jobId}-${idx}`;
+        cronPage._loadResult(s.id, sessionId);
+      });
     } catch (err) {
       el.innerHTML = `<div class="tg-text-hint" style="font-size:.72rem">Error: ${this._esc(err.message)}</div>`;
+    }
+  },
+
+  async _loadResult(sessionId, elementId) {
+    try {
+      const data = await API.get(`/sessions/${sessionId}`);
+      const messages = data.messages || [];
+      // Find the last assistant message (the result)
+      const lastAssistantMsg = messages.reverse().find(m => m.role === 'assistant');
+      const el = document.getElementById(elementId);
+      if (el) {
+        if (lastAssistantMsg) {
+          const content = typeof lastAssistantMsg.content === 'string'
+            ? lastAssistantMsg.content
+            : JSON.stringify(lastAssistantMsg.content, null, 2);
+          el.textContent = content;
+        } else {
+          el.textContent = '(sin resultado)';
+        }
+      }
+    } catch (err) {
+      const el = document.getElementById(elementId);
+      if (el) el.textContent = 'Error: ' + err.message;
+    }
+  },
+
+  _toggleResult(elementId, el) {
+    const resultEl = document.getElementById(elementId);
+    if (!resultEl) return;
+    if (resultEl.style.display !== 'none') {
+      resultEl.style.display = 'none';
+    } else {
+      resultEl.style.display = 'block';
     }
   },
 
