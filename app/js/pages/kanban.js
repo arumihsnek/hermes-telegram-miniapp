@@ -286,6 +286,67 @@ const kanbanBoard = {
     };
     document.body.appendChild(modal);
   },
+
+  async _applyFilters(boardId) {
+    try {
+      const boardFilter = document.getElementById('filter-board')?.value;
+      const tenantFilter = document.getElementById('filter-tenant')?.value;
+
+      const data = await API.get(`/boards/${boardId}`);
+      const columns = data.columns || [];
+
+      // Filter tasks based on board and tenant
+      const filteredColumns = columns.map(col => ({
+        ...col,
+        tasks: (col.tasks || []).filter(task => {
+          const boardMatch = !boardFilter || task.board === boardFilter;
+          const tenantMatch = !tenantFilter || task.tenant === tenantFilter;
+          return boardMatch && tenantMatch;
+        })
+      }));
+
+      // Update the tasks container
+      const container = document.getElementById('kanban-tasks-container');
+      if (container) {
+        container.innerHTML = filteredColumns.map(col => {
+          const colId = col.name.toLowerCase().replace(/\s+/g, '_');
+          return `
+            <div class="kanban-column-single" data-column-id="${colId}">
+              <div class="column-header">
+                <h3>${kanbanPage._escape(col.name)}</h3>
+                <span class="tg-badge">${(col.tasks || []).length}</span>
+              </div>
+              <div class="column-tasks"
+                   data-column-id="${colId}"
+                   ondragover="kanbanBoard.onDragOver(event)"
+                   ondrop="kanbanBoard.onDrop(event, '${colId}')">
+                ${(col.tasks || []).map((task, idx) => kanbanBoard._renderTaskCard(task, idx, colId)).join('')}
+              </div>
+            </div>`;
+        }).join('');
+      }
+    } catch (err) {
+      Toast.error('Filter failed: ' + err.message);
+    }
+  },
+
+  async _moveTask(taskId, toColumnId) {
+    try {
+      await API.patch('/tasks/' + taskId + '/move', {
+        to_column_id: toColumnId,
+        position: 0,
+      });
+      const boardId = Router.history[Router.history.length - 1]?.split('/')[2];
+      if (boardId) {
+        const boardFilter = document.getElementById('filter-board')?.value;
+        const tenantFilter = document.getElementById('filter-tenant')?.value;
+        await kanbanBoard._applyFilters(boardId);
+      }
+      TG.haptic('success');
+    } catch (err) {
+      Toast.error('Failed to move task: ' + err.message);
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -608,12 +669,31 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
   try {
     const data = await API.get(`/boards/${params.boardId}`);
     const columns = data.columns || [];
+    const allBoards = data.boards || [];
+    const allTenants = data.tenants || [];
 
     title.textContent = params.boardId;
 
-    // Single-column layout
+    // Single-column layout with filters
     content.innerHTML = `
       <div class="kanban-board-single">
+        <div style="display:flex;gap:8px;margin-bottom:12px;padding:8px;background:var(--secondary-bg);border-radius:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:150px">
+            <label style="font-size:.75rem;color:var(--tg-theme-hint-color,#888);display:block;margin-bottom:4px">Board</label>
+            <select id="filter-board" class="tg-input" style="font-size:.85rem;width:100%" onchange="kanbanBoard._applyFilters('${params.boardId}')">
+              <option value="">All Boards</option>
+              ${allBoards.map(b => `<option value="${b.slug}">${b.name}</option>`).join('')}
+            </select>
+          </div>
+          <div style="flex:1;min-width:150px">
+            <label style="font-size:.75rem;color:var(--tg-theme-hint-color,#888);display:block;margin-bottom:4px">Tenant</label>
+            <select id="filter-tenant" class="tg-input" style="font-size:.85rem;width:100%" onchange="kanbanBoard._applyFilters('${params.boardId}')">
+              <option value="">All Tenants</option>
+              ${allTenants.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div id="kanban-tasks-container">
         ${columns.map(col => {
           const colId = col.name.toLowerCase().replace(/\s+/g, '_');
           return `
@@ -626,7 +706,21 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                    data-column-id="${colId}"
                    ondragover="kanbanBoard.onDragOver(event)"
                    ondrop="kanbanBoard.onDrop(event, '${colId}')">
-                ${(col.tasks || []).map((task, idx) => `
+                ${(col.tasks || []).map((task, idx) => {
+                  const columnMap = { 'triage': 0, 'todo': 1, 'ready': 2, 'blocked': 3, 'done': 4, 'completed': 5 };
+                  let moveButtons = '';
+                  if (colId === 'triage') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move to Todo">⬇</button>`;
+                  } else if (colId === 'todo') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'ready')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move to Ready">⬇</button>`;
+                  } else if (colId === 'ready') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Move back">⬆</button>`;
+                  } else if (colId === 'blocked') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Unblock">⬆</button>`;
+                  } else if (colId === 'completed' || colId === 'done') {
+                    moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Reopen">↻</button>`;
+                  }
+                  return `
                   <div class="kanban-task card"
                        draggable="true"
                        data-task-id="${task.id}"
@@ -643,17 +737,20 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                       ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
                       ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
                     </div>
-                    ${colId === 'triage' ? `
-                      <div style="display:flex;gap:4px;flex-shrink:0">
-                        <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:4px" title="Specify">🎯</button>
-                        <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:4px" title="Edit">✏️</button>
-                      </div>
-                    ` : ''}
+                    <div style="display:flex;gap:4px;flex-shrink:0">
+                      ${moveButtons}
+                      ${colId === 'triage' ? `
+                        <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Specify">🎯</button>
+                        <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Edit">✏️</button>
+                      ` : ''}
+                    </div>
                   </div>
-                `).join('')}
+                `;}
+                ).join('')}
               </div>
             </div>`;
         }).join('')}
+        </div>
       </div>`;
   } catch (err) {
     content.innerHTML = `<div class="error">Failed to load board: ${err.message}</div>`;
