@@ -732,14 +732,19 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
   backBtn.classList.remove('hidden');
 
   try {
-    // Load board data and boards list in parallel
-    const [boardData, boardsData] = await Promise.all([
-      API.get(`/boards/${params.boardId}`),
-      API.get(`/boards`)
-    ]);
-
+    // Load board data
+    const boardData = await API.get(`/boards/${params.boardId}`);
     const columns = boardData.columns || [];
-    const allBoards = (boardsData.boards || []).map(b => ({ slug: b.slug, name: b.name }));
+
+    // Try to load boards list, but don't fail if it doesn't work
+    let allBoards = [];
+    try {
+      const boardsData = await API.get(`/boards`);
+      allBoards = (boardsData.boards || []).map(b => ({ slug: b.slug, name: b.name }));
+    } catch (e) {
+      // Silently fail - boards list is optional
+    }
+
     const allTenants = boardData.tenants || []; // Will be empty if not provided by API
 
     title.textContent = params.boardId;
