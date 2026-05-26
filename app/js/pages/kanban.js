@@ -347,6 +347,71 @@ const kanbanBoard = {
       Toast.error('Failed to move task: ' + err.message);
     }
   },
+
+  async _toggleComments(taskId, btn) {
+    const el = document.getElementById(`comments-${taskId}`);
+    if (!el) return;
+    if (el.style.display !== 'none') {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    el.innerHTML = '<div class="tg-text-hint" style="font-size:.7rem">Loading comments...</div>';
+    await kanbanBoard._loadComments(taskId, el);
+  },
+
+  async _loadComments(taskId, el) {
+    try {
+      const task = await API.get(`/tasks/${taskId}`);
+      const comments = task.comments || [];
+
+      let html = '<div style="font-size:.75rem;max-height:200px;overflow-y:auto">';
+
+      if (comments.length === 0) {
+        html += '<div class="tg-text-hint">No comments yet</div>';
+      } else {
+        html += comments.map(c => `
+          <div style="padding:6px;margin-bottom:4px;background:var(--tg-theme-secondary-bg-color,#2a2a3e);border-radius:4px">
+            <div style="font-weight:600;font-size:.7rem">${kanbanPage._escape(c.author || 'Unknown')}</div>
+            <div style="color:var(--tg-theme-hint-color,#888);font-size:.65rem">${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</div>
+            <div style="margin-top:2px;white-space:pre-wrap;word-break:break-word">${kanbanPage._escape(c.text || c.content || '')}</div>
+          </div>
+        `).join('');
+      }
+
+      html += `
+        <div style="margin-top:6px;display:flex;gap:4px">
+          <input id="comment-input-${taskId}" class="tg-input" placeholder="Add comment..." style="font-size:.7rem;padding:4px;flex:1">
+          <button onclick="kanbanBoard._submitComment('${taskId}')" style="background:var(--primary);color:white;border:none;border-radius:4px;padding:4px 8px;font-size:.7rem;cursor:pointer">Send</button>
+        </div>
+      `;
+
+      html += '</div>';
+      el.innerHTML = html;
+    } catch (err) {
+      el.innerHTML = `<div class="tg-text-hint" style="font-size:.7rem">Error: ${err.message}</div>`;
+    }
+  },
+
+  async _submitComment(taskId) {
+    const input = document.getElementById(`comment-input-${taskId}`);
+    if (!input || !input.value.trim()) return;
+
+    try {
+      await API.post(`/tasks/${taskId}/comments`, {
+        text: input.value.trim(),
+      });
+      input.value = '';
+      // Reload comments
+      const el = document.getElementById(`comments-${taskId}`);
+      if (el) {
+        await kanbanBoard._loadComments(taskId, el);
+      }
+      Toast.show('Comment added ✓');
+    } catch (err) {
+      Toast.error('Failed to add comment: ' + err.message);
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -721,29 +786,32 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                     moveButtons = `<button onclick="event.stopPropagation();kanbanBoard._moveTask('${task.id}', 'todo')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Reopen">↻</button>`;
                   }
                   return `
-                  <div class="kanban-task card"
-                       draggable="true"
-                       data-task-id="${task.id}"
-                       data-position="${idx}"
-                       ondragstart="kanbanBoard.onDragStart(event, '${task.id}')"
-                       ondragend="kanbanBoard.onDragEnd(event)"
-                       ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
-                       ontouchmove="kanbanBoard.onTouchMove(event)"
-                       ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
-                       onclick="kanbanBoard.onTaskClick(event, '${task.id}')"
-                       style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
-                    <div style="flex:1;min-width:0">
-                      <div class="task-title">${kanbanPage._escape(task.title)}</div>
-                      ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
-                      ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
+                  <div class="kanban-task card" data-task-id="${task.id}" style="display:flex;flex-direction:column;gap:0">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"
+                         draggable="true"
+                         data-task-id="${task.id}"
+                         data-position="${idx}"
+                         ondragstart="kanbanBoard.onDragStart(event, '${task.id}')"
+                         ondragend="kanbanBoard.onDragEnd(event)"
+                         ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
+                         ontouchmove="kanbanBoard.onTouchMove(event)"
+                         ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
+                         onclick="kanbanBoard.onTaskClick(event, '${task.id}')">
+                      <div style="flex:1;min-width:0">
+                        <div class="task-title">${kanbanPage._escape(task.title)}</div>
+                        ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
+                        ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
+                      </div>
+                      <div style="display:flex;gap:4px;flex-shrink:0">
+                        ${moveButtons}
+                        <button onclick="event.stopPropagation();kanbanBoard._toggleComments('${task.id}', this)" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Comments">💬</button>
+                        ${colId === 'triage' ? `
+                          <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Specify">🎯</button>
+                          <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Edit">✏️</button>
+                        ` : ''}
+                      </div>
                     </div>
-                    <div style="display:flex;gap:4px;flex-shrink:0">
-                      ${moveButtons}
-                      ${colId === 'triage' ? `
-                        <button onclick="event.stopPropagation();kanbanForm.specify('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Specify">🎯</button>
-                        <button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px" title="Edit">✏️</button>
-                      ` : ''}
-                    </div>
+                    <div id="comments-${task.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--section-separator-color);"></div>
                   </div>
                 `;}
                 ).join('')}
