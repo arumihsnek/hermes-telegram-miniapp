@@ -79,6 +79,7 @@ const kanbanBoard = {
       if (this._touchMoved) return;
       this._isDragging = true;
       this.draggedTaskEl.classList.add('dragging-active');
+      TG.haptic?.('light');
 
       // Clone the card for visual drag feedback
       const clone = this.draggedTaskEl.cloneNode(true);
@@ -244,6 +245,7 @@ const kanbanForm = {
   _visible: false,
 
   async show() {
+    this._editingTaskId = null;
     this._visible = true;
     // Ensure modal exists in DOM
     if (!document.getElementById('kf-modal')) {
@@ -260,10 +262,55 @@ const kanbanForm = {
     this._loadDeps();
   },
 
+  async editTask(taskId) {
+    this._editingTaskId = taskId;
+    this._visible = true;
+    // Ensure modal exists in DOM
+    if (!document.getElementById('kf-modal')) {
+      this._render();
+    }
+    // Load task data
+    try {
+      const task = await API.get('/tasks/' + taskId);
+      document.getElementById('kf-modal').classList.remove('hidden');
+
+      // Populate form with task data
+      document.getElementById('kf-title').value = task.title || '';
+      document.getElementById('kf-body').value = task.body || '';
+      document.getElementById('kf-assignee').value = task.assignee || '';
+      document.getElementById('kf-priority').value = task.priority || '0';
+
+      // Load boards and set current board
+      await Promise.all([this._loadBoards(), this._loadProfiles(), this._loadSkills()]);
+      const boardSel = document.getElementById('kf-board');
+      if (task.board) boardSel.value = task.board;
+
+      this._loadDeps();
+
+      // Update header to show we're editing
+      const header = document.querySelector('.kf-header h3');
+      if (header) header.textContent = 'Edit Task';
+
+    } catch (err) {
+      Toast.error('Failed to load task: ' + err.message);
+    }
+  },
+
   hide() {
     this._visible = false;
+    this._editingTaskId = null;
     const el = document.getElementById('kf-modal');
-    if (el) el.classList.add('hidden');
+    if (el) {
+      el.classList.add('hidden');
+      // Reset header
+      const header = document.querySelector('.kf-header h3');
+      if (header) header.textContent = 'New Kanban Task';
+      // Reset form
+      document.getElementById('kf-title').value = '';
+      document.getElementById('kf-body').value = '';
+      document.getElementById('kf-assignee').value = '';
+      document.getElementById('kf-priority').value = '0';
+    }
   },
 
   _render() {
@@ -428,41 +475,54 @@ const kanbanForm = {
     if (!board) { Toast.error('Select a board'); return; }
     if (!title) { Toast.error('Title is required'); return; }
 
-    let triage = false;
-    let effectiveAssignee = assignee;
-
-    if (action === 'save') {
-      triage = true;
-    } else if (action === 'specify') {
-      triage = true;
-      // Specify implies assigning to the selected profile for specification
-    } else if (action === 'todoready') {
-      triage = false;
-      // Todo/Ready: if assignee set, creates as ready; otherwise todo
-      // kanban_db logic handles this: no triage + no parents = ready; no triage + parents = todo
-    }
-
-    const payload = {
-      title,
-      body: body || '',
-      board,
-      assignee: effectiveAssignee,
-      priority,
-      triage,
-      parents: parents.length > 0 ? parents : undefined,
-      skills: skills.length > 0 ? skills : undefined,
-    };
-
     try {
-      const result = await API.post('/tasks', payload);
-      TG.haptic('success');
-      this.hide();
-      // Refresh the board view if we're on a board detail
-      const currentRoute = Router.history[Router.history.length - 1] || '';
-      if (currentRoute.startsWith('/kanban/')) {
-        Router.navigate(currentRoute, true);
+      if (this._editingTaskId) {
+        // Update existing task
+        await API.patch('/tasks/' + this._editingTaskId, {
+          title,
+          body: body || '',
+          assignee: assignee,
+          priority,
+          board,
+        });
+        TG.haptic('success');
+        this.hide();
+        const currentRoute = Router.history[Router.history.length - 1] || '';
+        if (currentRoute.startsWith('/kanban/')) {
+          Router.navigate(currentRoute, true);
+        }
+        Toast.success('Task updated');
+      } else {
+        // Create new task
+        let triage = false;
+        if (action === 'save') {
+          triage = true;
+        } else if (action === 'specify') {
+          triage = true;
+        } else if (action === 'todoready') {
+          triage = false;
+        }
+
+        const payload = {
+          title,
+          body: body || '',
+          board,
+          assignee: assignee,
+          priority,
+          triage,
+          parents: parents.length > 0 ? parents : undefined,
+          skills: skills.length > 0 ? skills : undefined,
+        };
+
+        const result = await API.post('/tasks', payload);
+        TG.haptic('success');
+        this.hide();
+        const currentRoute = Router.history[Router.history.length - 1] || '';
+        if (currentRoute.startsWith('/kanban/')) {
+          Router.navigate(currentRoute, true);
+        }
+        Toast.success('Task created: ' + (result.title || result.id || 'ok'));
       }
-      Toast.success('Task created: ' + (result.title || result.id || 'ok'));
     } catch (err) {
       Toast.error('Failed: ' + err.message);
     }
@@ -506,10 +566,14 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                        ondragend="kanbanBoard.onDragEnd(event)"
                        ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
                        ontouchmove="kanbanBoard.onTouchMove(event)"
-                       ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')">
-                    <div class="task-title">${kanbanPage._escape(task.title)}</div>
-                    ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
-                    ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
+                       ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
+                       style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                      <div class="task-title">${kanbanPage._escape(task.title)}</div>
+                      ${task.assignee ? `<div class="tg-text-hint">@ ${kanbanPage._escape(task.assignee)}</div>` : ''}
+                      ${task.priority ? `<span class="tg-badge">P${task.priority}</span>` : ''}
+                    </div>
+                    ${colId === 'triage' ? `<button onclick="event.stopPropagation();kanbanForm.editTask('${task.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px">✏️</button>` : ''}
                   </div>
                 `).join('')}
               </div>
