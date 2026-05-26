@@ -233,6 +233,59 @@ const kanbanBoard = {
     this._touchMoved = false;
     this._dragClone = null;
   },
+
+  async onTaskClick(event, taskId) {
+    // Don't navigate if clicking on buttons
+    if (event.target.tagName === 'BUTTON') return;
+
+    try {
+      const task = await API.get('/tasks/' + taskId);
+      const sessions = task.sessions || [];
+
+      if (sessions.length === 0) {
+        Toast.show('No sessions for this task');
+        return;
+      }
+
+      if (sessions.length === 1) {
+        Router.navigate('/sessions/' + sessions[0].id);
+        return;
+      }
+
+      // Multiple sessions - show selector
+      kanbanBoard._showSessionSelector(taskId, sessions);
+    } catch (err) {
+      Toast.show('Error: ' + err.message);
+    }
+  },
+
+  _showSessionSelector(taskId, sessions) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+    modal.innerHTML = `
+      <div style="background:var(--bg);border-radius:12px;padding:16px;max-width:90%;max-height:80vh;overflow-y:auto">
+        <h3 style="margin:0 0 12px 0;font-size:16px">Select Session</h3>
+        ${sessions.map((s, idx) => {
+          const running = !s.ended_at;
+          const dot = running ? '🟢' : (s.end_reason === 'error' ? '🔴' : '⚪');
+          const label = s.title || s.id.slice(0, 20);
+          return `
+            <div onclick="Router.navigate('/sessions/${s.id}');document.body.lastChild.remove()"
+                 style="padding:10px;border:1px solid var(--section-separator-color);border-radius:8px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px">
+              ${dot} <span>${kanbanPage._escape(label)}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>`;
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+    document.body.appendChild(modal);
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -583,6 +636,7 @@ Router.register('/kanban/:boardId', async ({ content, title, backBtn, params }) 
                        ontouchstart="kanbanBoard.onTouchStart(event, '${task.id}', '${colId}')"
                        ontouchmove="kanbanBoard.onTouchMove(event)"
                        ontouchend="kanbanBoard.onTouchEnd(event, '${colId}')"
+                       onclick="kanbanBoard.onTaskClick(event, '${task.id}')"
                        style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
                     <div style="flex:1;min-width:0">
                       <div class="task-title">${kanbanPage._escape(task.title)}</div>
