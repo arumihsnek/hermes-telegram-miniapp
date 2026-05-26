@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermes - Sesiones</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>try{Telegram.WebApp.ready();Telegram.WebApp.expand()}catch(e){}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f0f1a);color:var(--tg-theme-text-color,#e0e0e0);padding:12px;min-height:100vh}
+h1{font-size:1.2rem;margin-bottom:8px;color:var(--tg-theme-text-color,#e0e0e0)}
+.sub{font-size:.75rem;color:var(--tg-theme-hint-color,#888);margin-bottom:14px}
+.s{border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.s.cron{background:rgba(74,158,255,.12);border-left:3px solid #4a9eff}
+.s.msg{background:var(--tg-theme-secondary-bg-color,#1a1a2e)}
+.s .i{flex-shrink:0;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.s.cron .i{background:rgba(74,158,255,.2)}
+.s.msg .i{background:rgba(255,255,255,.06)}
+.s .bd{flex:1;min-width:0}
+.s .t{font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tg-theme-text-color,#e0e0e0)}
+.s .t em{font-style:normal;color:var(--tg-theme-hint-color,#888)}
+.s .d{font-size:.7rem;color:var(--tg-theme-hint-color,#666);margin-top:2px}
+.s .d .tag{display:inline-block;padding:0 5px;border-radius:3px;font-size:.65rem;margin-right:4px}
+.s .d .tag.c{background:rgba(74,158,255,.25);color:#8ab4ff}
+.s .d .tag.m{background:rgba(255,255,255,.08);color:#aaa}
+.s .d .tag.u{background:rgba(255,200,50,.15);color:#ffc832}
+.btn{background:var(--tg-theme-button-color,#4a9eff);color:var(--tg-theme-button-text-color,#fff);border:none;border-radius:8px;padding:6px 12px;font-size:.75rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity .15s}
+.btn:active{opacity:.7}
+.btn2{background:transparent;border:1px solid var(--tg-theme-button-color,#4a9eff);color:var(--tg-theme-button-color,#4a9eff)}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--tg-theme-button-color,#4a9eff);color:var(--tg-theme-button-text-color,#fff);padding:8px 20px;border-radius:20px;font-size:.8rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.s{opacity:1}
+.loading,.empty{text-align:center;padding:40px;color:var(--tg-theme-hint-color,#888);font-size:.9rem}
+.err{text-align:center;padding:40px;color:#ff6b6b;font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:5px 14px;border-radius:16px;border:1px solid var(--tg-theme-hint-color,#555);background:transparent;color:var(--tg-theme-hint-color,#888);font-size:.78rem;cursor:pointer;transition:all .15s}
+.tab.act{background:var(--tg-theme-button-color,#4a9eff);border-color:var(--tg-theme-button-color,#4a9eff);color:#fff}
+</style>
+</head>
+<body>
+<h1>Conversaciones</h1>
+<div class="tabs" id="tabs">
+  <span class="tab act" data-f="" onclick="setF('')">Todas</span>
+  <span class="tab" data-f="cron" onclick="setF('cron')">Programadas</span>
+  <span class="tab" data-f="msg" onclick="setF('msg')">Chats</span>
+  <span class="tab" data-f="undefined" onclick="setF('undefined')">Vacias</span>
+</div>
+<div id="l"><div class="loading">Cargando sesiones...</div></div>
+<div class="toast" id="t"></div>
+<script>
+var _all=[],_f='',_token='';
+// Primero obtener el token de sesion del WebUI
+async function getToken(){
+  try{
+    var r=await fetch('/');
+    var html=await r.text();
+    var m=html.match(/__HERMES_SESSION_TOKEN__="([^"]+)"/);
+    if(m) _token=m[1];
+  }catch(e){}
+}
+async function api(path){
+  var h={};
+  if(_token) h['X-Hermes-Session-Token']=_token;
+  var r=await fetch(path,{headers:h});
+  return r.json();
+}
+function setF(f){
+  _f=f;
+  document.querySelectorAll('.tab').forEach(function(el){el.classList.toggle('act',el.dataset.f===f)});
+  render();
+}
+function typeOf(s){
+  if(!s||!s.title) return 'undefined';
+  var t=s.title.toLowerCase();
+  if(t.indexOf('cron')>=0||t.indexOf('schedule')>=0||t.indexOf('program')>=0) return 'cron';
+  return 'msg';
+}
+function render(){
+  var list=_f?_all.filter(function(s){return typeOf(s)===_f}):_all;
+  if(!list.length){document.getElementById('l').innerHTML='<div class="empty">'+( _f==='cron'?'Sin sesiones programadas':_f==='msg'?'Sin conversaciones':_f==='undefined'?'Todas las sesiones tienen titulo':'Sin sesiones')+'</div>';return}
+  document.getElementById('l').innerHTML=list.map(function(s){
+    var id=s.id||s.session_id||'',title=s.title?esc(s.title):'';
+    var tp=typeOf(s);
+    var icon=tp==='cron'?'&#x1f4c5;':tp==='undefined'?'&#x2753;':'&#x1f4ac;';
+    if(!title) title='<em>'+(tp==='cron'?'Tarea programada':'Sesion sin titulo')+'</em>';
+    var dt=s.updated_at?new Date(s.updated_at+'Z').toLocaleDateString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    var tag='';
+    if(tp==='cron') tag='<span class="tag c">cron</span>';
+    else if(tp==='msg') tag='<span class="tag m">chat</span>';
+    else tag='<span class="tag u">vacia</span>';
+    var cmd='/resume '+id.slice(0,8);
+    var tgl='https://t.me/__BOT__?start='+id.slice(0,8);
+    return '<div class="s '+tp+'"><div class="i">'+icon+'</div><div class="bd"><div class="t">'+title+'</div><div class="d">'+tag+dt+' &middot; '+id.slice(0,8)+'</div></div><button class="btn btn2" onclick="cp(\\''+cmd+'\\')">Copy</button><button class="btn" onclick="window.location.href=\\''+tgl+'\\'">Resume</button></div>'
+  }).join('')
+}
+async function load(){
+  await getToken();
+  try{
+    const d=await api('/api/sessions');
+    _all=d.sessions||d||[];
+    if(!Array.isArray(_all)){_all=[]}
+    render();
+  }catch(e){document.getElementById('l').innerHTML='<div class="err">Error: '+e.message+'</div>'}
+}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function cp(t){if(navigator.clipboard){navigator.clipboard.writeText(t).then(function(){st('Copiado: '+t)})}else{st(t)}}
+function st(m){var e=document.getElementById('t');e.textContent=m;e.classList.add('s');setTimeout(function(){e.classList.remove('s')},2000)}
+load()
+</script>
+</body>
+</html>
