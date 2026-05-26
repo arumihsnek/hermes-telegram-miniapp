@@ -68,14 +68,6 @@ const sessionsPage = {
         this._render(container);
       });
     });
-
-    // Bind long-press copy to session IDs in list
-    container.querySelectorAll('[data-longpress-id]').forEach(el => {
-      const sid = el.getAttribute('data-longpress-id');
-      LongPress.enable(el, () => {
-        LongPress.copy(sid);
-      });
-    });
   },
 
   _filterCheckbox(key, label) {
@@ -95,7 +87,6 @@ const sessionsPage = {
     const label = s.title || ('session ' + (s.id || '').substring(0, 16));
     const sid = sessionsPage._escape(s.id);
     const stitle = sessionsPage._escape(s.title || '');
-    const sidUnescaped = s.id;
 
     return `
       <div class="card session-card" onclick="sessionsPage._openSession('${sid}')">
@@ -112,7 +103,7 @@ const sessionsPage = {
           <span>·</span>
           <span>💬 ${s.message_count || 0}</span>
           <span>·</span>
-          <span style="cursor:pointer;user-select:none" data-longpress-id="${sidUnescaped}">${sessionsPage._formatDate(s.started_at || s.ended_at)}</span>
+          <span>${sessionsPage._formatDate(s.started_at || s.ended_at)}</span>
         </div>
       </div>`;
   },
@@ -177,6 +168,15 @@ const sessionsPage = {
       return d.toLocaleDateString();
     } catch(e) { return ''; }
   },
+
+  _copyToClipboard(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const text = el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      Toast.show('✓ Copied');
+    });
+  },
 };
 
 // Session detail sub-route
@@ -193,9 +193,7 @@ Router.register('/sessions/:sessionId', async ({ content, title, backBtn, params
 
     const headerBar = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:0 4px">
-        <span style="font-size:.8rem;color:var(--tg-theme-hint-color,#888);flex:1">
-          <span style="cursor:pointer;user-select:none" data-longpress-id="${sid}">${sessionsPage._escape(session.source || '')} · 💬 ${session.message_count || 0}</span>
-        </span>
+        <span style="font-size:.8rem;color:var(--tg-theme-hint-color,#888);flex:1">${sessionsPage._escape(session.source || '')} · 💬 ${session.message_count || 0}</span>
         <button class="tg-button" style="width:auto;padding:4px 10px;font-size:.78rem"
           onclick="sessionsPage._renameSessionPrompt('${sid}','${stitle}')">✏ Rename</button>
       </div>`;
@@ -210,10 +208,14 @@ Router.register('/sessions/:sessionId', async ({ content, title, backBtn, params
         let body = '';
         if (typeof msg.content === 'string') body = msg.content;
         else if (msg.content) body = JSON.stringify(msg.content, null, 2);
+        const toolId = 'tool-' + Math.random().toString(36).slice(2, 9);
         return `
           <details class="message message-tool">
-            <summary><span class="message-tool-name">🔧 ${toolName}</span></summary>
-            <pre class="message-tool-body" data-longpress-content="${sessionsPage._escape(body)}">${sessionsPage._escape(body)}</pre>
+            <summary style="display:flex;justify-content:space-between;align-items:center">
+              <span class="message-tool-name">🔧 ${toolName}</span>
+              <button class="tool-copy-btn" onclick="event.stopPropagation();sessionsPage._copyToClipboard('${toolId}')" style="background:none;border:none;cursor:pointer;padding:4px 8px;opacity:.6;font-size:.75rem">📋 Copy</button>
+            </summary>
+            <pre class="message-tool-body" id="${toolId}">${sessionsPage._escape(body)}</pre>
           </details>`;
       }
 
@@ -245,34 +247,6 @@ Router.register('/sessions/:sessionId', async ({ content, title, backBtn, params
     const msgContainer = document.getElementById('session-messages');
     if (msgContainer) {
       msgContainer.scrollTop = msgContainer.scrollHeight;
-
-      // Add long-press listeners to message content
-      msgContainer.querySelectorAll('.message-content').forEach(el => {
-        LongPress.enable(el, () => {
-          const text = el.textContent;
-          if (text) {
-            LongPress.copy(text);
-          }
-        });
-      });
-
-      // Add long-press listeners to tool message bodies
-      msgContainer.querySelectorAll('.message-tool-body').forEach(el => {
-        LongPress.enable(el, () => {
-          const text = el.textContent;
-          if (text) {
-            LongPress.copy(text);
-          }
-        });
-      });
-
-      // Add long-press listener to session ID
-      const idEl = msgContainer.querySelector('[data-longpress-id]');
-      if (idEl) {
-        LongPress.enable(idEl, () => {
-          LongPress.copy(sid);
-        });
-      }
     }
 
   } catch (err) {

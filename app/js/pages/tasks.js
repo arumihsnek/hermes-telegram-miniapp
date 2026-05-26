@@ -80,14 +80,6 @@ const tasksPage = {
     html += '</div>';
     content.innerHTML = html;
 
-    // Add long-press listeners to all IDs
-    content.querySelectorAll('[data-longpress-id]').forEach(el => {
-      const id = el.getAttribute('data-longpress-id');
-      LongPress.enable(el, () => {
-        LongPress.copy(id);
-      });
-    });
-
     // Re-render expanded children
     for (const sid of this._expanded) {
       const el = content.querySelector(`[data-children-for="${sid}"]`);
@@ -108,7 +100,7 @@ const tasksPage = {
         <div class="agent-meta tg-text-hint">
           ${model}${model ? ' &nbsp;•&nbsp; ' : ''}${this._uptime(a.elapsed_seconds)}
           &nbsp;•&nbsp; 💬 ${a.message_count}
-          &nbsp;•&nbsp; <code class="agent-id" data-longpress-id="${a.session_id}">${id8}</code>
+          &nbsp;•&nbsp; <code class="agent-id">${id8}</code>
         </div>
       </div>`;
   },
@@ -181,18 +173,10 @@ const tasksPage = {
             ${status}
           </div>
           <div class="tg-text-hint" style="font-size:.68rem">
-            💬 ${c.message_count || 0} &nbsp;•&nbsp; <code data-longpress-id="${c.id}">${c.id.slice(0,12)}</code>
+            💬 ${c.message_count || 0} &nbsp;•&nbsp; <code>${c.id.slice(0,12)}</code>
           </div>
         </div>`;
       }).join('');
-
-      // Add long-press listeners to child IDs
-      container.querySelectorAll('[data-longpress-id]').forEach(el => {
-        const id = el.getAttribute('data-longpress-id');
-        LongPress.enable(el, () => {
-          LongPress.copy(id);
-        });
-      });
     } catch (err) {
       container.innerHTML = `<div class="tg-text-hint" style="font-size:.72rem;padding:4px">Error: ${this._esc(err.message)}</div>`;
     }
