@@ -93,7 +93,7 @@ const cronPage = {
             <button class="tg-button tg-button-secondary" style="width:auto;padding:5px 10px;font-size:.72rem"
               onclick="cronPage._toggle('${j.id}')">${enabled ? 'Pausar' : 'Activar'}</button>
             <button class="tg-button tg-button-secondary" style="width:auto;padding:5px 10px;font-size:.72rem"
-              onclick="cronPage._toggleSessions('${j.id}', this)">📋</button>
+              onclick="cronPage._toggleSessions('${j.id}', this)">▼</button>
           </div>
         </div>
         <div id="cron-sessions-${j.id}" style="display:none;margin-top:6px;border-top:1px solid var(--tg-theme-secondary-bg-color,#2a2a2a);padding-top:6px"></div>
@@ -148,7 +148,7 @@ const cronPage = {
   async _toggleSessions(jobId, btn) {
     const el = document.getElementById(`cron-sessions-${jobId}`);
     if (!el) return;
-    if (el.style.display !== 'none') { el.style.display = 'none'; btn.textContent = '📋'; return; }
+    if (el.style.display !== 'none') { el.style.display = 'none'; btn.textContent = '▼'; return; }
     el.style.display = 'block';
     btn.textContent = '▲';
     el.innerHTML = '<div class="tg-text-hint" style="font-size:.72rem">Cargando...</div>';
