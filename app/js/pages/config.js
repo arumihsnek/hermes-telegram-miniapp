@@ -1,9 +1,9 @@
 /**
- * Sessions page — embedded iframe from native dashboard
+ * Config page — embedded iframe from native dashboard
  */
-const sessionsPage = {
+const configPage = {
   async handler({ content, title, backBtn }) {
-    title.textContent = 'Sessions';
+    title.textContent = 'Config';
     backBtn.classList.add('hidden');
     document.body.classList.add('fullscreen-page');
     document.querySelector('.app-shell')?.classList.add('fullscreen-page');
@@ -12,8 +12,8 @@ const sessionsPage = {
       <div class="iframe-page">
         <iframe
           class="app-embed-frame"
-          src="https://dashboard.hermesinthenight.duckdns.org/sessions"
-          title="Sessions"
+          src="https://dashboard.hermesinthenight.duckdns.org/config"
+          title="Config"
           loading="eager"
           referrerpolicy="strict-origin-when-cross-origin"
           allow="clipboard-read; clipboard-write; cross-origin-isolated">
@@ -21,7 +21,6 @@ const sessionsPage = {
       </div>
     `;
 
-    // Inject CSS to hide dashboard header
     setTimeout(() => {
       const iframe = document.querySelector('.app-embed-frame');
       if (iframe && iframe.contentDocument) {
@@ -36,4 +35,4 @@ const sessionsPage = {
   }
 };
 
-Router.register('/sessions', sessionsPage.handler.bind(sessionsPage));
+Router.register('/config', configPage.handler.bind(configPage));

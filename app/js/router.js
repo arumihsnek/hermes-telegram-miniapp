@@ -82,6 +82,12 @@ const Router = {
     const title = document.getElementById('page-title');
     const backBtn = document.getElementById('btn-back');
     const navButtons = document.querySelectorAll('#bottom-nav button');
+    const appShell = document.querySelector('.app-shell');
+
+    document.body.classList.remove('fullscreen-page');
+    if (appShell) {
+      appShell.classList.remove('fullscreen-page');
+    }
 
     // Show loading state
     content.innerHTML = '<div class="loading">Loading...</div>';

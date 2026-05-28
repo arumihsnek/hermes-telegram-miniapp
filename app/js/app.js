@@ -42,6 +42,12 @@
   // Initialize Router
   Router.init();
 
+  // Debug: log all hash changes
+  window.addEventListener('hashchange', () => {
+    console.log('[HERMES] Hash changed to:', window.location.hash);
+    console.trace('[HERMES] Hash change trace');
+  });
+
   // Post-init: apply theme if not already done
   if (webapp && webapp.themeParams && typeof Theme === 'undefined') {
     const root = document.documentElement;

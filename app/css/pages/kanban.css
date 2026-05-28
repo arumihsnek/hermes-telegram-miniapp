@@ -1,4 +1,4 @@
-/* Kanban page */
+/* Legacy kanban boards (archived) */
 .kanban-boards { display: flex; flex-direction: column; gap: 8px; }
 .kanban-boards h2 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
 

@@ -1,9 +1,9 @@
 /**
- * Sessions page — embedded iframe from native dashboard
+ * Keys page — embedded iframe from native dashboard
  */
-const sessionsPage = {
+const keysPage = {
   async handler({ content, title, backBtn }) {
-    title.textContent = 'Sessions';
+    title.textContent = 'Keys';
     backBtn.classList.add('hidden');
     document.body.classList.add('fullscreen-page');
     document.querySelector('.app-shell')?.classList.add('fullscreen-page');
@@ -12,8 +12,8 @@ const sessionsPage = {
       <div class="iframe-page">
         <iframe
           class="app-embed-frame"
-          src="https://dashboard.hermesinthenight.duckdns.org/sessions"
-          title="Sessions"
+          src="https://dashboard.hermesinthenight.duckdns.org/keys"
+          title="Keys"
           loading="eager"
           referrerpolicy="strict-origin-when-cross-origin"
           allow="clipboard-read; clipboard-write; cross-origin-isolated">
@@ -36,4 +36,4 @@ const sessionsPage = {
   }
 };
 
-Router.register('/sessions', sessionsPage.handler.bind(sessionsPage));
+Router.register('/keys', keysPage.handler.bind(keysPage));
