@@ -11,7 +11,7 @@ import http.server, urllib.request, re, sys, socket, os, mimetypes
 UPSTREAM = os.environ.get("TG_PROXY_UPSTREAM", "http://127.0.0.1:9119")
 PORT = int(os.environ.get("TG_PROXY_PORT", "9118"))
 BOT = os.environ.get("TG_PROXY_BOT", "evh055_bot")
-DIR = os.path.dirname(os.path.abspath(__file__))
+DIR = os.path.dirname(os.path.realpath(__file__))
 APP_DIR = os.path.join(os.path.dirname(DIR), "app")
 
 TG_SCRIPT = ('<script src="https://telegram.org/js/telegram-web-app.js"></script>'
